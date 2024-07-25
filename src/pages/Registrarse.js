@@ -15,7 +15,7 @@ export default function Registrarse() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
-      const response = await fetch('http://localhost:3000/api/users', {
+      const response = await fetch('http://localhost:3360/api/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -24,7 +24,7 @@ export default function Registrarse() {
       });
 
       if (response.ok) {
-        navigate('/Login');
+        navigate('./');
       } else {
         console.error('Registro fallido');
       }
@@ -107,7 +107,7 @@ export default function Registrarse() {
                     </Grid>
                 
                   </Grid>
-                  <a href='./'><Button 
+                  <a href='/'><Button 
                     type="submit"
                     fullWidth
                     variant="contained"
@@ -117,7 +117,7 @@ export default function Registrarse() {
                   </Button></a>
                   <Grid container justifyContent="flex-end">
                     <Grid item>
-                      <a href='./' variant="body2">
+                      <a href='/' variant="body2">
                         ¿Ya tienes una cuenta? Inicia sesión
                       </a>
                     </Grid>

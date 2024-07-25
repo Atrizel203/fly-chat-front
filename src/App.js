@@ -4,13 +4,15 @@ import Registrarse from './pages/Registrarse';
 import Principal from './pages/Principal';
 import Login from './pages/Login'
 
+
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/Login" element={<Login />} />
+        <Route path="/" element={<Login />} />
         <Route path="/Registrarse" element={<Registrarse />} />
         <Route path="/principal" element={<Principal />} />
+  
       </Routes>
     </Router>
   );

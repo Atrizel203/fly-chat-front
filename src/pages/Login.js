@@ -1,213 +1,121 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Box, TextField, Button, Avatar, Typography, List, ListItem, ListItemText, ListItemAvatar, IconButton, Divider } from '@mui/material';
-import { Search, MoreVert, Delete } from '@mui/icons-material';
-import MarkMesser from '../images/Logo.webp'; // Ruta a tu imagen local
+import * as React from 'react';
+import { useState } from 'react';
+import { Avatar, Button, CssBaseline, TextField, FormControlLabel, Checkbox, Link, Grid, Box, Typography, Container, createTheme, ThemeProvider, Paper } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import  loginImage  from '../images/Logo.webp'
 
-const Principal = () => {
-  const [messages, setMessages] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [inputValue, setInputValue] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [ws, setWs] = useState(null);
+const defaultTheme = createTheme();
 
-  const fetchUsers = async () => {
-    const user = JSON.parse(localStorage.getItem('user'));
-    setCurrentUser(user);
-    const response = await fetch(`http://localhost:3000/api/users?userId=${user.id}`);
-    const data = await response.json();
-    const otherUsers = data.filter(u => u.id !== user.id);
-    setUsers(otherUsers);
-    setFilteredUsers(otherUsers);
-  };
+export default function IniciarSesion() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const navigate = useNavigate();
 
-  const fetchMessages = async (userId) => {
-    const user = JSON.parse(localStorage.getItem('user'));
-    const response = await fetch(`http://localhost:3000/api/messages/conversation?user1=${user.id}&user2=${userId}`);
-    const data = await response.json();
-    setMessages(data);
-  };
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  useEffect(() => {
-    if (selectedUser) {
-      fetchMessages(selectedUser.id);
-    }
-  }, [selectedUser]);
-
-  useEffect(() => {
-    const socket = new WebSocket('ws://localhost:3000');
-    setWs(socket);
-
-    socket.onmessage = (event) => {
-      if (typeof event.data === 'string') {
-        // Si event.data es un string, se puede parsear directamente
-        try {
-          const message = JSON.parse(event.data);
-          if (
-            message &&
-            message.remitente_id &&
-            message.destinatario_id &&
-            ((message.remitente_id === currentUser.id && message.destinatario_id === selectedUser?.id) ||
-              (message.remitente_id === selectedUser?.id && message.destinatario_id === currentUser.id))
-          ) {
-            setMessages((prevMessages) => [...prevMessages, message]);
-          }
-        } catch (e) {
-          console.error('Error processing message:', e);
-        }
-      } else {
-        // Si event.data no es un string, usar FileReader para leerlo como texto
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            const message = JSON.parse(reader.result);
-            if (
-              message &&
-              message.remitente_id &&
-              message.destinatario_id &&
-              ((message.remitente_id === currentUser.id && message.destinatario_id === selectedUser?.id) ||
-                (message.remitente_id === selectedUser?.id && message.destinatario_id === currentUser.id))
-            ) {
-              setMessages((prevMessages) => [...prevMessages, message]);
-            }
-          } catch (e) {
-            console.error('Error processing message:', e);
-          }
-        };
-        reader.readAsText(new Blob([event.data]));
-      }
-    };
-
-    return () => {
-      socket.close();
-    };
-  }, [currentUser, selectedUser]);
-
-  const handleSelectUser = (user) => {
-    setSelectedUser(user);
-  };
-
-  const handleSendMessage = async () => {
-    if (inputValue.trim() !== '' && selectedUser && ws) {
-      const message = {
-        remitente_id: currentUser.id,
-        destinatario_id: selectedUser.id,
-        mensaje: inputValue,
-        fecha_envio: new Date().toISOString().slice(0, 19).replace('T', ' '), // Formato adecuado para MySQL
-      };
-
-      // Enviar el mensaje a través de WebSocket
-      ws.send(JSON.stringify(message));
-
-      // Limpia el campo de entrada de texto
-      setInputValue('');
-    }
-  };
-
-  const handleDeleteMessage = async (messageId) => {
-    if (!messageId) {
-      console.error('Message ID is invalid');
-      return;
-    }
-
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     try {
-      const response = await fetch(`http://localhost:3000/api/messages/${messageId}`, {
-        method: 'DELETE',
+      const response = await fetch('http://localhost:3360/api/users/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
       });
+  
       if (response.ok) {
-        setMessages((prevMessages) => prevMessages.filter((message) => message.id !== messageId));
+        const user = await response.json();
+        localStorage.setItem('user', JSON.stringify(user)); // Guardar el usuario en localStorage
+        navigate('/principal');
       } else {
-        console.error('Error deleting message');
+        console.error('Inicio de sesión fallido');
       }
     } catch (error) {
-      console.error('Error deleting message:', error);
+      console.error('Error:', error);
     }
-  };
-
-  const renderMessage = (message, index) => (
-    message && (
-      <Box key={index} display="flex" flexDirection="column" alignItems="flex-start" mb={2}>
-        <Typography variant="body2" color="textSecondary">{message.remitente_id === currentUser.id ? 'Tú' : selectedUser?.nombre}</Typography>
-        <Box display="flex" alignItems="center">
-          <Box bgcolor="primary.main" color="white" p={2} borderRadius={2} maxWidth="80%">
-            {message.mensaje}
-          </Box>
-          <Typography variant="body2" color="textSecondary" sx={{ ml: 1 }}>{new Date(message.fecha_envio).toLocaleTimeString()}</Typography>
-          <IconButton onClick={() => handleDeleteMessage(message.id)}>
-            <Delete />
-          </IconButton>
-        </Box>
-      </Box>
-    )
-  );
-
-  const handleSearchChange = (event) => {
-    const value = event.target.value;
-    setSearchTerm(value);
-    setFilteredUsers(users.filter(user => user.nombre.toLowerCase().includes(value.toLowerCase())));
   };
 
   return (
-    <Container maxWidth="lg" sx={{ display: 'flex', height: '100vh' }}>
-      <Box sx={{ width: '25%', borderRight: '1px solid #ccc', display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ padding: 2, borderBottom: '1px solid #ccc' }}>
-          <TextField
-            variant="outlined"
-            fullWidth
-            placeholder="Busca Mensajes o Usuarios"
-            value={searchTerm}
-            onChange={handleSearchChange}
-            InputProps={{
-              startAdornment: (
-                <Search />
-              ),
-            }}
-          />
-        </Box>
-        <List>
-          {filteredUsers.map((user) => (
-            <ListItem button key={user.id} onClick={() => handleSelectUser(user)}>
-              <ListItemAvatar>
-                <Avatar src={MarkMesser} />
-              </ListItemAvatar>
-              <ListItemText primary={user.nombre} />
-              <Typography variant="body2" color="textSecondary" sx={{ ml: 2 }}>12 min</Typography>
-            </ListItem>
-          ))}
-          <Divider />
-        </List>
-      </Box>
-      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ padding: 2, borderBottom: '1px solid #ccc', display: 'flex', alignItems:"center", justifyContent:"space-between" }}>
-          <Typography variant="h6">{selectedUser ? selectedUser.nombre : 'Seleccione un usuario'}</Typography>
-          <IconButton>
-            <MoreVert />
-          </IconButton>
-        </Box>
-        <Box sx={{ flexGrow: 1, padding: 2, overflowY: 'auto' }}>
-          {messages.map(renderMessage)}
-        </Box>
-        <Box sx={{ padding: 2, borderTop: '1px solid #ccc', display: 'flex' }}>
-          <TextField
-            variant="outlined"
-            fullWidth
-            placeholder="Mensaje..."
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-          />
-          <Button variant="contained" color="primary" onClick={handleSendMessage} sx={{ ml: 2 }}>
-            Enviar
-          </Button>
-        </Box>
-      </Box>
-    </Container>
+    <ThemeProvider theme={defaultTheme}>
+      <Container component="main" maxWidth="md">
+        <CssBaseline />
+        <Paper elevation={6} sx={{ display: 'flex', borderRadius: 2, marginTop: "100px"}}>
+          <Grid container>
+            <Grid item xs={12} sm={6}>
+              <Box
+                sx={{
+                  backgroundImage: `url(${loginImage})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  height: '100%',
+                  borderRadius: '4px 0 0 4px'
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Box
+                sx={{
+                  margin: 4,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                }}
+              >
+                <Avatar sx={{ m: 1, bgcolor: 'secondary.main' }}>
+              
+                </Avatar>
+                <Typography component="h1" variant="h5">
+                  Inicio de Sesión
+                </Typography>
+                <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
+                  <TextField
+                    margin="normal"
+                    required
+                    fullWidth
+                    id="email"
+                    label="Dirección de Email"
+                    name="email"
+                    autoComplete="email"
+                    autoFocus
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                  <TextField
+                    margin="normal"
+                    required
+                    fullWidth
+                    name="password"
+                    label="Contraseña"
+                    type="password"
+                    id="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <FormControlLabel
+                    control={<Checkbox value="remember" color="primary" />}
+                    label="Recordarme"
+                  />
+                  <Button
+                    type="submit"
+                    fullWidth
+                    variant="contained"
+                    sx={{ mt: 3, mb: 2 }}
+                  >
+                    Iniciar Sesión
+                  </Button>
+                  <Grid container>
+                    <Grid item>
+                      <Link href="./Registrarse" variant="body2">
+                        {"¿No tienes una cuenta? Regístrate"}
+                      </Link>
+                    </Grid>
+                  </Grid>
+                </Box>
+              </Box>
+            </Grid>
+          </Grid>
+        </Paper>
+      </Container>
+    </ThemeProvider>
   );
-};
-
-export default Principal;
+}
